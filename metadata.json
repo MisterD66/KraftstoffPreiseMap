@@ -1,0 +1,5 @@
+{
+  "name": "Diesel Preis Tracker Linz",
+  "description": "Aktuelle Dieselpreise in Linz auf einer interaktiven Karte.",
+  "requestFramePermissions": ["geolocation"]
+}
