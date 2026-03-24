@@ -8,7 +8,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number]>([48.3069, 14.2858]); // Default to Linz
   const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
-  const [searchParams, setSearchParams] = useState({ radius: 0.05, steps: 2 });
+  const [searchParams, setSearchParams] = useState({ radius: 0.009, steps: 2 });
   const [hoveredStationId, setHoveredStationId] = useState<number | null>(null);
   const [showSearchPoints, setShowSearchPoints] = useState(false);
   const [queriedPoints, setQueriedPoints] = useState<{ lat: number; lon: number; stationIds: number[] }[]>([]);
@@ -152,6 +152,7 @@ export default function App() {
       error={error}
       onRefresh={fetchPrices}
       userLocation={userLocation}
+      setUserLocation={setUserLocation}
       searchLogs={searchLogs}
       searchParams={searchParams}
       setSearchParams={setSearchParams}

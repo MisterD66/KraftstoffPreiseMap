@@ -22,6 +22,7 @@ interface DashboardProps {
   error: string | null;
   onRefresh: () => void;
   userLocation: [number, number];
+  setUserLocation: (loc: [number, number]) => void;
   searchLogs: SearchLog[];
   searchParams: { radius: number; steps: number };
   setSearchParams: React.Dispatch<React.SetStateAction<{ radius: number; steps: number }>>;
@@ -40,6 +41,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   error,
   onRefresh,
   userLocation,
+  setUserLocation,
   searchLogs,
   searchParams,
   setSearchParams,
@@ -51,6 +53,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   hoveredQueryPointIdx,
   setHoveredQueryPointIdx
 }) => {
+  const handleLocationChange = (loc: [number, number]) => {
+    setUserLocation(loc);
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setUserLocation([position.coords.latitude, position.coords.longitude]);
+      });
+    }
+  };
+
   const sortedStations = [...stations].sort((a, b) => 
     (a.prices[0]?.amount || Infinity) - (b.prices[0]?.amount || Infinity)
   );
@@ -83,6 +97,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             Kraftstoff <br />
             <span className="not-italic">Preise</span>
           </h1>
+          <p className="mt-4 text-[10px] uppercase tracking-widest font-bold opacity-30">
+            Klicke auf die Karte, um das Suchzentrum zu verschieben
+          </p>
         </div>
         
         <div className="flex flex-col items-end gap-6">
@@ -97,14 +114,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           <div className="flex items-center gap-4 bg-white/50 p-2 rounded-2xl border border-black/5">
             <div className="flex items-center gap-2 px-3">
+              <button 
+                onClick={handleGetCurrentLocation}
+                className="flex items-center gap-2 text-[10px] uppercase font-bold opacity-40 hover:opacity-100 transition-opacity"
+                title="Aktuellen Standort verwenden"
+              >
+                <MapPin size={12} />
+                Standort
+              </button>
+            </div>
+            <div className="w-px h-4 bg-black/10" />
+            <div className="flex items-center gap-2 px-3">
               <span className="text-[10px] uppercase font-bold opacity-40">Radius</span>
               <input 
-                type="range" min="0.01" max="0.1" step="0.01" 
-                value={searchParams.radius}
-                onChange={(e) => setSearchParams(p => ({ ...p, radius: parseFloat(e.target.value) }))}
+                type="range" min="100" max="2000" step="100" 
+                value={searchParams.radius * 111000}
+                onChange={(e) => setSearchParams(p => ({ ...p, radius: parseFloat(e.target.value) / 111000 }))}
                 className="w-24 accent-[#5A5A40]"
               />
-              <span className="text-[10px] font-mono font-bold w-8">{searchParams.radius.toFixed(2)}</span>
+              <span className="text-[10px] font-mono font-bold w-12">
+                {searchParams.radius * 111 < 1 
+                  ? `${(searchParams.radius * 111000).toFixed(0)}m` 
+                  : `${(searchParams.radius * 111).toFixed(1)}km`}
+              </span>
             </div>
             <div className="w-px h-4 bg-black/10" />
             <div className="flex items-center gap-2 px-3">
@@ -136,9 +168,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <button 
               onClick={onRefresh}
               disabled={loading}
-              className="bg-[#151619] text-white p-2 rounded-xl hover:opacity-80 transition-opacity disabled:opacity-30"
+              className="bg-[#151619] text-white px-4 py-2 rounded-xl hover:opacity-80 transition-opacity disabled:opacity-30 flex items-center gap-2"
             >
-              <Search size={16} />
+              <Search size={16} className={loading ? "animate-spin" : ""} />
+              <span className="text-[10px] uppercase font-bold">
+                {loading ? "Suche läuft..." : "Suche starten"}
+              </span>
             </button>
           </div>
         </div>
@@ -150,6 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <GasStationMap 
             stations={stations} 
             center={userLocation} 
+            onLocationChange={handleLocationChange}
             hoveredStationId={hoveredStationId}
             showSearchPoints={showSearchPoints}
             queriedPoints={queriedPoints}

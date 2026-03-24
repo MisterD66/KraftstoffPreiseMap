@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { GasStation } from '../types';
 import { formatPrice } from '../utils';
+import { MapPin, Target } from 'lucide-react';
 
 // Fix for default marker icons in Leaflet with Vite
 const DefaultIcon = L.icon({
@@ -13,6 +14,22 @@ const DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
+
+// Custom icon for the search center
+const CenterIcon = L.divIcon({
+  className: 'search-center-marker',
+  html: `
+    <div class="flex items-center justify-center">
+      <div class="w-10 h-10 bg-rose-500/20 rounded-full border-2 border-rose-500 flex items-center justify-center animate-pulse">
+        <div class="w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-target"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        </div>
+      </div>
+    </div>
+  `,
+  iconSize: [40, 40],
+  iconAnchor: [20, 20]
+});
 
 const getPriceColor = (price: number, min: number, max: number) => {
   if (price === min) return '#22C55E'; // Green
@@ -61,12 +78,22 @@ const createPriceIcon = (price: number, isHovered: boolean, color: string, rank?
 interface GasStationMapProps {
   stations: GasStation[];
   center: [number, number];
+  onLocationChange: (loc: [number, number]) => void;
   hoveredStationId: number | null;
   showSearchPoints: boolean;
   queriedPoints: { lat: number; lon: number; stationIds: number[] }[];
   hoveredQueryPointIdx: number | null;
   setHoveredQueryPointIdx: (idx: number | null) => void;
 }
+
+const MapEvents = ({ onLocationChange }: { onLocationChange: (loc: [number, number]) => void }) => {
+  useMapEvents({
+    click: (e) => {
+      onLocationChange([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+  return null;
+};
 
 const RecenterMap = ({ center }: { center: [number, number] }) => {
   const map = useMap();
@@ -79,6 +106,7 @@ const RecenterMap = ({ center }: { center: [number, number] }) => {
 export const GasStationMap: React.FC<GasStationMapProps> = ({ 
   stations, 
   center, 
+  onLocationChange,
   hoveredStationId,
   showSearchPoints,
   queriedPoints,
@@ -109,6 +137,14 @@ export const GasStationMap: React.FC<GasStationMapProps> = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <RecenterMap center={center} />
+        <MapEvents onLocationChange={onLocationChange} />
+
+        {/* Search Center Marker */}
+        <Marker position={center} icon={CenterIcon}>
+          <Popup>
+            <div className="text-xs font-bold">Suchzentrum</div>
+          </Popup>
+        </Marker>
         
         {showSearchPoints && queriedPoints.map((point, idx) => (
           <Marker 
