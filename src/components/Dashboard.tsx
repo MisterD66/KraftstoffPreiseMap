@@ -194,6 +194,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <h3 className="text-sm font-bold leading-tight">
                               {station.name}
                             </h3>
+                            {idx < 3 && (
+                              <span className={cn(
+                                "text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase",
+                                idx === 0 ? "bg-[#FFD700] text-black" :
+                                idx === 1 ? "bg-[#C0C0C0] text-black" :
+                                "bg-[#CD7F32] text-black"
+                              )}>
+                                {idx === 0 ? 'Gold' : idx === 1 ? 'Silber' : 'Bronze'}
+                              </span>
+                            )}
                           </div>
                           <p className={cn(
                             "text-[10px] flex items-center gap-1",
