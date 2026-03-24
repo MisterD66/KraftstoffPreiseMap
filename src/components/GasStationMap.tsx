@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { GasStation } from '../types';
 import { formatPrice } from '../utils';
@@ -47,6 +47,10 @@ interface GasStationMapProps {
   stations: GasStation[];
   center: [number, number];
   hoveredStationId: number | null;
+  showSearchPoints: boolean;
+  queriedPoints: { lat: number; lon: number; stationIds: number[] }[];
+  hoveredQueryPointIdx: number | null;
+  setHoveredQueryPointIdx: (idx: number | null) => void;
 }
 
 const RecenterMap = ({ center }: { center: [number, number] }) => {
@@ -57,7 +61,15 @@ const RecenterMap = ({ center }: { center: [number, number] }) => {
   return null;
 };
 
-export const GasStationMap: React.FC<GasStationMapProps> = ({ stations, center, hoveredStationId }) => {
+export const GasStationMap: React.FC<GasStationMapProps> = ({ 
+  stations, 
+  center, 
+  hoveredStationId,
+  showSearchPoints,
+  queriedPoints,
+  hoveredQueryPointIdx,
+  setHoveredQueryPointIdx
+}) => {
   const prices = stations.map(s => s.prices[0]?.amount).filter(p => typeof p === 'number' && p > 0);
   const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
@@ -75,6 +87,47 @@ export const GasStationMap: React.FC<GasStationMapProps> = ({ stations, center, 
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <RecenterMap center={center} />
+        
+        {showSearchPoints && queriedPoints.map((point, idx) => (
+          <Marker 
+            key={`query-${idx}`}
+            position={[point.lat, point.lon]}
+            eventHandlers={{
+              mouseover: () => setHoveredQueryPointIdx(idx),
+              mouseout: () => setHoveredQueryPointIdx(null),
+            }}
+            icon={L.divIcon({
+              className: 'query-point',
+              html: `<div class="w-2 h-2 bg-rose-500 rounded-full border border-white shadow-sm transition-transform duration-200 ${hoveredQueryPointIdx === idx ? 'scale-150' : 'scale-100'}"></div>`,
+              iconSize: [8, 8],
+              iconAnchor: [4, 4]
+            })}
+          />
+        ))}
+
+        {showSearchPoints && hoveredQueryPointIdx !== null && queriedPoints[hoveredQueryPointIdx] && (
+          queriedPoints[hoveredQueryPointIdx].stationIds.map(stationId => {
+            const station = stations.find(s => s.id === stationId);
+            if (!station) return null;
+            return (
+              <Polyline 
+                key={`line-${hoveredQueryPointIdx}-${stationId}`}
+                positions={[
+                  [queriedPoints[hoveredQueryPointIdx].lat, queriedPoints[hoveredQueryPointIdx].lon],
+                  [station.latitude, station.longitude]
+                ]}
+                pathOptions={{ 
+                  color: '#F43F5E', 
+                  weight: 1, 
+                  dashArray: '5, 5',
+                  opacity: 0.6,
+                  className: 'animate-pulse'
+                }}
+              />
+            );
+          })
+        )}
+
         {stations.map((station) => {
           const price = station.prices[0]?.amount || 0;
           const isHovered = hoveredStationId === station.id;
@@ -83,7 +136,7 @@ export const GasStationMap: React.FC<GasStationMapProps> = ({ stations, center, 
           return (
             <Marker 
               key={station.id} 
-              position={[station.location.latitude, station.location.longitude]}
+              position={[station.latitude, station.longitude]}
               icon={createPriceIcon(price, isHovered, color)}
               zIndexOffset={isHovered ? 1000 : 0}
             >

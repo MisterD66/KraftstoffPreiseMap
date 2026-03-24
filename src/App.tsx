@@ -8,8 +8,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number]>([48.3069, 14.2858]); // Default to Linz
   const [searchLogs, setSearchLogs] = useState<SearchLog[]>([]);
-  const [searchParams, setSearchParams] = useState({ radius: 0.03, steps: 1 });
+  const [searchParams, setSearchParams] = useState({ radius: 0.05, steps: 2 });
   const [hoveredStationId, setHoveredStationId] = useState<number | null>(null);
+  const [showSearchPoints, setShowSearchPoints] = useState(false);
+  const [queriedPoints, setQueriedPoints] = useState<{ lat: number; lon: number; stationIds: number[] }[]>([]);
+  const [hoveredQueryPointIdx, setHoveredQueryPointIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -30,18 +33,24 @@ export default function App() {
       
       const points = [{ lat: centerLat, lon: centerLon }];
       
-      // Generate grid points
-      for (let i = 1; i <= steps; i++) {
-        const currentOffset = radius * i;
-        points.push({ lat: centerLat + currentOffset, lon: centerLon });
-        points.push({ lat: centerLat - currentOffset, lon: centerLon });
-        points.push({ lat: centerLat, lon: centerLon + currentOffset });
-        points.push({ lat: centerLat, lon: centerLon - currentOffset });
-        // Diagonals
-        points.push({ lat: centerLat + currentOffset, lon: centerLon + currentOffset });
-        points.push({ lat: centerLat - currentOffset, lon: centerLon - currentOffset });
-        points.push({ lat: centerLat + currentOffset, lon: centerLon - currentOffset });
-        points.push({ lat: centerLat - currentOffset, lon: centerLon + currentOffset });
+      // Generate points using Fermat's Spiral (Golden Spiral) for uniform distribution
+      // 'steps' now controls the total density of the spiral
+      const numPoints = steps * 12; 
+      const goldenAngle = 137.508 * (Math.PI / 180);
+      
+      for (let i = 1; i <= numPoints; i++) {
+        // Normalize radius so the 'radius' parameter defines the maximum extent
+        const r = radius * Math.sqrt(i / numPoints);
+        const theta = i * goldenAngle;
+        
+        // Convert polar to cartesian (approximate for lat/lon at this scale)
+        const latOffset = r * Math.cos(theta);
+        const lonOffset = r * Math.sin(theta) / Math.cos(centerLat * Math.PI / 180);
+        
+        points.push({ 
+          lat: centerLat + latOffset, 
+          lon: centerLon + lonOffset 
+        });
       }
 
       const fetchPricesFromAPI = async (p: { lat: number, lon: number }) => {
@@ -76,10 +85,18 @@ export default function App() {
 
       // Execute in chunks to avoid overwhelming the proxy/API
       const results: any[] = [];
+      const pointsWithStations: { lat: number; lon: number; stationIds: number[] }[] = [];
       const chunkSize = 5;
       for (let i = 0; i < points.length; i += chunkSize) {
         const chunk = points.slice(i, i + chunkSize);
-        const chunkResults = await Promise.all(chunk.map(fetchPricesFromAPI));
+        const chunkResults = await Promise.all(chunk.map(async (p) => {
+          const stationsAtPoint = await fetchPricesFromAPI(p);
+          pointsWithStations.push({
+            ...p,
+            stationIds: stationsAtPoint.map((s: any) => s.id)
+          });
+          return stationsAtPoint;
+        }));
         results.push(...chunkResults.flat());
         // Small delay between chunks
         if (i + chunkSize < points.length) {
@@ -87,9 +104,15 @@ export default function App() {
         }
       }
 
-      // Deduplicate by station ID
+      setQueriedPoints(pointsWithStations);
+
+      // Deduplicate by station ID and map to flat structure
       const uniqueStations = Array.from(
-        new Map(results.map(s => [s.id, s])).values()
+        new Map(results.map(s => [s.id, {
+          ...s,
+          latitude: s.location?.latitude || s.latitude,
+          longitude: s.location?.longitude || s.longitude
+        }])).values()
       ) as GasStation[];
 
       // Filter out 0.00 prices
@@ -134,6 +157,11 @@ export default function App() {
       setSearchParams={setSearchParams}
       hoveredStationId={hoveredStationId}
       setHoveredStationId={setHoveredStationId}
+      showSearchPoints={showSearchPoints}
+      setShowSearchPoints={setShowSearchPoints}
+      queriedPoints={queriedPoints}
+      hoveredQueryPointIdx={hoveredQueryPointIdx}
+      setHoveredQueryPointIdx={setHoveredQueryPointIdx}
     />
   );
 }

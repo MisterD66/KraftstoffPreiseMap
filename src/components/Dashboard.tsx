@@ -27,6 +27,11 @@ interface DashboardProps {
   setSearchParams: React.Dispatch<React.SetStateAction<{ radius: number; steps: number }>>;
   hoveredStationId: number | null;
   setHoveredStationId: (id: number | null) => void;
+  showSearchPoints: boolean;
+  setShowSearchPoints: (show: boolean) => void;
+  queriedPoints: { lat: number; lon: number; stationIds: number[] }[];
+  hoveredQueryPointIdx: number | null;
+  setHoveredQueryPointIdx: (idx: number | null) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ 
@@ -39,7 +44,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   searchParams,
   setSearchParams,
   hoveredStationId,
-  setHoveredStationId
+  setHoveredStationId,
+  showSearchPoints,
+  setShowSearchPoints,
+  queriedPoints,
+  hoveredQueryPointIdx,
+  setHoveredQueryPointIdx
 }) => {
   const sortedStations = [...stations].sort((a, b) => 
     (a.prices[0]?.amount || Infinity) - (b.prices[0]?.amount || Infinity)
@@ -61,10 +71,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return 'text-amber-500';
   };
 
-  const currentAvg = stations.length > 0 
-    ? stations.reduce((acc, s) => acc + (s.prices[0]?.amount || 0), 0) / stations.length 
-    : 0;
-
   return (
     <div className="min-h-screen bg-[#F5F5F0] text-[#141414] font-sans p-4 md:p-8">
       <header className="max-w-7xl mx-auto mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -81,10 +87,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         
         <div className="flex flex-col items-end gap-6">
           <div className="text-right">
-            <span className="text-xs uppercase tracking-widest font-semibold opacity-50 block mb-1">Durchschnittspreis</span>
+            <span className="text-xs uppercase tracking-widest font-semibold opacity-50 block mb-1">Günstigster Preis</span>
             <div className="flex items-center gap-3">
-              <span className="text-4xl md:text-6xl font-mono font-medium tracking-tighter">
-                {formatPrice(currentAvg)}
+              <span className="text-4xl md:text-6xl font-mono font-medium tracking-tighter text-emerald-500">
+                {formatPrice(minPrice)}
               </span>
             </div>
           </div>
@@ -102,14 +108,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
             <div className="w-px h-4 bg-black/10" />
             <div className="flex items-center gap-2 px-3">
-              <span className="text-[10px] uppercase font-bold opacity-40">Schritte</span>
+              <span className="text-[10px] uppercase font-bold opacity-40">Dichte</span>
               <input 
-                type="range" min="1" max="5" step="1" 
+                type="range" min="1" max="10" step="1" 
                 value={searchParams.steps}
                 onChange={(e) => setSearchParams(p => ({ ...p, steps: parseInt(e.target.value) }))}
                 className="w-24 accent-[#5A5A40]"
               />
-              <span className="text-[10px] font-mono font-bold w-4">{searchParams.steps}</span>
+              <span className="text-[10px] font-mono font-bold w-12">{searchParams.steps * 12} Pkt</span>
+            </div>
+            <div className="w-px h-4 bg-black/10" />
+            <div className="flex items-center gap-2 px-3">
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <div className="relative">
+                  <input 
+                    type="checkbox" 
+                    checked={showSearchPoints}
+                    onChange={(e) => setShowSearchPoints(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-8 h-4 bg-black/10 rounded-full peer-checked:bg-rose-500 transition-colors" />
+                  <div className="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+                </div>
+                <span className="text-[10px] uppercase font-bold opacity-40 group-hover:opacity-60 transition-opacity">Abfrage-Punkte</span>
+              </label>
             </div>
             <button 
               onClick={onRefresh}
@@ -125,7 +147,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Map Section */}
         <section className="lg:col-span-12">
-          <GasStationMap stations={stations} center={userLocation} hoveredStationId={hoveredStationId} />
+          <GasStationMap 
+            stations={stations} 
+            center={userLocation} 
+            hoveredStationId={hoveredStationId}
+            showSearchPoints={showSearchPoints}
+            queriedPoints={queriedPoints}
+            hoveredQueryPointIdx={hoveredQueryPointIdx}
+            setHoveredQueryPointIdx={setHoveredQueryPointIdx}
+          />
         </section>
 
         {/* Scrollable List Section */}
